@@ -5,7 +5,7 @@
 
 ## Decision
 
-Waza's core runtime will use:
+WaxPrep's core runtime will use:
 
 - Language: Python
 - Runtime: Python 3.14.x
@@ -16,7 +16,7 @@ The project will target Python 3.14 and will not depend on a second primary prog
 
 ## Why Python
 
-Waza is a general-purpose computer agent.
+WaxPrep is a general-purpose computer agent.
 
 Its core runtime will eventually need to:
 
@@ -38,7 +38,7 @@ Python is also appropriate for the project's goal of keeping the core agent unde
 
 TypeScript and Node.js are capable choices for agent systems, particularly for web services and streaming applications.
 
-They were not selected as Waza's core language because the project is primarily a computer agent rather than a web application. Python provides a simpler single-language foundation for the operating-system, process, filesystem, networking, and AI-facing work Waza is expected to perform.
+They were not selected as WaxPrep's core language because the project is primarily a computer agent rather than a web application. Python provides a simpler single-language foundation for the operating-system, process, filesystem, networking, and AI-facing work WaxPrep is expected to perform.
 
 This does not prohibit TypeScript or JavaScript from being used in a future isolated component if a concrete requirement justifies it.
 
@@ -46,7 +46,7 @@ This does not prohibit TypeScript or JavaScript from being used in a future isol
 
 JavaScript without TypeScript was rejected for the same architectural reason as TypeScript, with the additional disadvantage of weaker compile-time type guarantees for a system expected to contain substantial state, process, filesystem, and execution logic.
 
-Waza should not introduce a second language merely because a particular ecosystem is convenient.
+WaxPrep should not introduce a second language merely because a particular ecosystem is convenient.
 
 ## Why Python 3.14
 
@@ -54,7 +54,7 @@ Python 3.14 is the current stable feature series as of this decision.
 
 The currently verified maintenance release is Python 3.14.8, released September 30, 2026.
 
-Waza therefore targets:
+WaxPrep therefore targets:
 
     >=3.14,<3.15
 
@@ -101,7 +101,7 @@ Dependencies, application packages, build configuration, scripts, and agent code
 
 Hosting is deliberately not part of this decision.
 
-Waza is expected to run on a hosted environment such as Railway or another suitable platform later.
+WaxPrep is expected to run on a hosted environment such as Railway or another suitable platform later.
 
 The application should therefore be designed around its runtime contract rather than around the developer's personal machine.
 
@@ -127,7 +127,7 @@ Rejected because it would increase complexity, tooling requirements, testing sur
 
 ## Consequence
 
-Waza now has one clear foundation:
+WaxPrep now has one clear foundation:
 
 Python → Python 3.14 → uv → `pyproject.toml`
 
