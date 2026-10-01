@@ -11,7 +11,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-ENVIRONMENT_VARIABLE    =     "WAXPREP_ENV"
+ENVIRONMENT_VARIABLE = "WAXPREP_ENV"
 
 ALLOWED_ENVIRONMENTS = frozenset(
     {
