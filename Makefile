@@ -1,4 +1,4 @@
-.PHONY: format lint typecheck
+.PHONY: format lint typecheck test
 
 format:
 	uv run ruff format .
@@ -8,6 +8,9 @@ lint:
 
 typecheck:
 	uv run mypy
+
+test:
+	PYTHONPATH=src uv run python -m unittest discover -s tests -v
 
 .PHONY: check
 check:
