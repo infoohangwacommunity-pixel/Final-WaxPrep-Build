@@ -1,0 +1,66 @@
+# WaxPrep Quality Gate — permanent automatic checks on every push and pull request.
+# Uses established tools only; does not invent application-specific scanners.
+
+name: quality-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.21"
+          enable-cache: true
+
+      - name: Install Python and project dependencies
+        run: |
+          uv python install 3.14
+          uv sync --group dev --frozen
+
+      - name: Ruff format check (no modifications)
+        run: uv run ruff format --check .
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: mypy strict type check
+        run: uv run mypy
+
+      - name: Unit tests
+        env:
+          PYTHONPATH: src
+        run: uv run python -m unittest discover -s tests -v
+
+      - name: Package import validation
+        env:
+          PYTHONPATH: src
+        run: |
+          uv run python -c "import waxprep"
+          uv run python -c "from waxprep.config import Settings, load_settings"
+
+      - name: Dependency vulnerability audit
+        # Established tool (pip-audit via uvx). Fails the gate on known vulnerable deps.
+        run: |
+          uv export --frozen --no-emit-project --no-dev -o /tmp/waxprep-runtime-reqs.txt
+          uv export --frozen --no-emit-project --group dev -o /tmp/waxprep-all-reqs.txt
+          uvx --from pip-audit pip-audit -r /tmp/waxprep-all-reqs.txt
