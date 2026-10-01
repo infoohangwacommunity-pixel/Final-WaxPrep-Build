@@ -19,6 +19,24 @@ Examples:
 - `docs: record runtime decision`
 - `test: verify workspace lifecycle`
 
+## Secrets and Configuration
+
+Real secrets must never be committed to the repository.
+
+Secrets may only come from:
+
+1. Environment variables provided to the runtime.
+2. A secrets file stored outside the repository.
+
+The following rules apply:
+
+- `.env` files are ignored by Git.
+- `.env.example` may contain variable names, comments, and fake placeholder values only.
+- Real API keys, passwords, access tokens, database credentials, and similar secrets must never be placed in source code.
+- Secrets must never be printed in logs, error messages, tests, or command output.
+- Future capabilities should introduce their configuration variables only when those capabilities are actually built.
+- Do not invent provider-specific credentials before the corresponding integration exists.
+
 ## Stage Completion
 
 Every stage ends with a verified commit.
