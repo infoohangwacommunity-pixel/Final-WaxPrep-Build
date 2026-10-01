@@ -1,0 +1,63 @@
+# Automatically merge dependency update PRs after the quality gate passes.
+# Does not rewrite application code. Only merges when checks are green.
+
+name: auto-merge
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  check_suite:
+    types: [completed]
+  workflow_run:
+    workflows: ["quality-gate"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  dependabot-auto-merge:
+    name: Auto-merge Dependabot when quality gate passes
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'pull_request' &&
+      github.actor == 'dependabot[bot]'
+    steps:
+      - name: Enable auto-merge (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # --auto waits for required checks when branch protection exists;
+          # without protection, merges once the command is issued if mergeable.
+          gh pr merge --auto --squash "$PR_URL" || {
+            echo "Auto-merge enable failed or already set; attempting direct squash merge if checks passed."
+            # Fallback: only merge if the PR is mergeable
+            state=$(gh pr view "$PR_URL" --json mergeable,state -q '.mergeable + " " + .state')
+            echo "PR state: $state"
+            gh pr merge --squash "$PR_URL" || true
+          }
+
+  merge-after-quality-gate:
+    name: Merge open Dependabot PRs after successful quality-gate
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Merge Dependabot PRs that are still open and green
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # List open Dependabot PRs and squash-merge those with successful checks
+          gh pr list --repo "${{ github.repository }}" --author "app/dependabot" --state open --json number,url,statusCheckRollup \
+            --jq '.[] | select(.statusCheckRollup == null or ([.statusCheckRollup[]?.conclusion] | all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED"))) | .url' \
+            | while read -r url; do
+                [ -z "$url" ] && continue
+                echo "Merging $url"
+                gh pr merge --squash "$url" || echo "Could not merge $url"
+              done

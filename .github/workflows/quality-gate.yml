@@ -1,5 +1,6 @@
 # WaxPrep Quality Gate — permanent automatic checks on every push and pull request.
 # Uses established tools only; does not invent application-specific scanners.
+# This workflow is the judge: it never rewrites code.
 
 name: quality-gate
 
@@ -28,10 +29,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "0.12.21"
           enable-cache: true
@@ -63,8 +64,6 @@ jobs:
           uv run python -c "from waxprep.config import Settings, load_settings"
 
       - name: Dependency vulnerability audit
-        # Established tool (pip-audit via uvx). Fails the gate on known vulnerable deps.
         run: |
-          uv export --frozen --no-emit-project --no-dev -o /tmp/waxprep-runtime-reqs.txt
           uv export --frozen --no-emit-project --group dev -o /tmp/waxprep-all-reqs.txt
           uvx --from pip-audit pip-audit -r /tmp/waxprep-all-reqs.txt

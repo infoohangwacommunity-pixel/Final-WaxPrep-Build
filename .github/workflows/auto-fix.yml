@@ -1,0 +1,70 @@
+# Safe automatic repair for deterministic mechanical issues only.
+# - Ruff format (style only)
+# - Ruff lint --fix (safe auto-fixable rules only)
+# Never changes application logic, tests intent, or architecture.
+# After fixing, quality-gate must still pass for any merge.
+
+name: auto-fix
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-fix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  safe-fix:
+    name: Safe format and mechanical lint fix
+    runs-on: ubuntu-latest
+    # Skip on Dependabot: those PRs are version bumps; quality-gate + auto-merge handle them.
+    if: github.actor != 'dependabot[bot]'
+    timeout-minutes: 15
+
+    env:
+      UV_INDEX_URL: https://pypi.org/simple
+      UV_HTTP_TIMEOUT: "120"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.21"
+          enable-cache: true
+
+      - name: Install Python and project dependencies
+        run: |
+          uv python install 3.14
+          uv sync --group dev --frozen
+
+      - name: Apply safe Ruff format
+        run: uv run ruff format .
+
+      - name: Apply safe Ruff auto-fixes only
+        run: uv run ruff check --fix .
+
+      - name: Commit and push safe fixes if needed
+        run: |
+          if git diff --quiet; then
+            echo "No safe fixes needed."
+            exit 0
+          fi
+          git config user.name "waxprep-auto-fix[bot]"
+          git config user.email "waxprep-auto-fix[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: apply safe automatic format and lint fixes"
+          git push
