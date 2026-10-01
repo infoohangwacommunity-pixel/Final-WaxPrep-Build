@@ -1,14 +1,9 @@
-# Automatically merge dependency update PRs after the quality gate passes.
-# Does not rewrite application code. Only merges when checks are green.
+# Merge Dependabot PRs only after the quality-gate workflow has completed successfully
+# for that exact PR head SHA. No optimistic "looks mergeable" merges.
 
 name: auto-merge
 
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
-  check_suite:
-    types: [completed]
   workflow_run:
     workflows: ["quality-gate"]
     types: [completed]
@@ -17,47 +12,92 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
+  actions: read
 
 jobs:
-  dependabot-auto-merge:
-    name: Auto-merge Dependabot when quality gate passes
+  merge-dependabot-after-quality-gate:
+    name: Merge Dependabot PR after successful quality-gate
     runs-on: ubuntu-latest
+    # Only act when quality-gate finished successfully on a pull_request event.
     if: >
-      github.event_name == 'pull_request' &&
-      github.actor == 'dependabot[bot]'
-    steps:
-      - name: Enable auto-merge (squash)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: |
-          # --auto waits for required checks when branch protection exists;
-          # without protection, merges once the command is issued if mergeable.
-          gh pr merge --auto --squash "$PR_URL" || {
-            echo "Auto-merge enable failed or already set; attempting direct squash merge if checks passed."
-            # Fallback: only merge if the PR is mergeable
-            state=$(gh pr view "$PR_URL" --json mergeable,state -q '.mergeable + " " + .state')
-            echo "PR state: $state"
-            gh pr merge --squash "$PR_URL" || true
-          }
-
-  merge-after-quality-gate:
-    name: Merge open Dependabot PRs after successful quality-gate
-    runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request'
     steps:
-      - name: Merge Dependabot PRs that are still open and green
+      - name: Resolve PR and verify it is Dependabot + same head SHA
+        id: meta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
         run: |
-          # List open Dependabot PRs and squash-merge those with successful checks
-          gh pr list --repo "${{ github.repository }}" --author "app/dependabot" --state open --json number,url,statusCheckRollup \
-            --jq '.[] | select(.statusCheckRollup == null or ([.statusCheckRollup[]?.conclusion] | all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED"))) | .url' \
-            | while read -r url; do
-                [ -z "$url" ] && continue
-                echo "Merging $url"
-                gh pr merge --squash "$url" || echo "Could not merge $url"
-              done
+          set -euo pipefail
+
+          # Find the PR associated with this successful quality-gate run.
+          # Prefer the PR whose head SHA matches the workflow_run head_sha exactly.
+          pr_json=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/attempts/1" --jq '{head_sha: .head_sha, head_branch: .head_branch}' 2>/dev/null || true)
+
+          echo "workflow_run head_sha=${HEAD_SHA}"
+
+          # List open PRs into main and pick the one matching HEAD_SHA.
+          match=$(gh pr list --repo "$REPO" --base main --state open --json number,url,author,headRefOid,isDraft \
+            --jq --arg sha "$HEAD_SHA" \
+            '.[] | select(.headRefOid == $sha and .isDraft == false) | {number, url, login: .author.login}')
+
+          if [ -z "$match" ] || [ "$match" = "null" ]; then
+            echo "No open non-draft PR on main matches head SHA ${HEAD_SHA}. Nothing to merge."
+            echo "should_merge=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "$match"
+          login=$(echo "$match" | jq -r '.login')
+          number=$(echo "$match" | jq -r '.number')
+          url=$(echo "$match" | jq -r '.url')
+
+          # Only Dependabot (app account login is typically "dependabot" or "app/dependabot").
+          case "$login" in
+            dependabot|dependabot[bot]|app/dependabot)
+              ;;
+            *)
+              echo "PR #${number} author is '${login}', not Dependabot. Refusing auto-merge."
+              echo "should_merge=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
+          # Double-check: quality-gate must be SUCCESS for this SHA (not merely "checks look ok").
+          # workflow_run.conclusion == success already enforces the triggering run succeeded;
+          # still confirm no failing quality-gate runs exist for this SHA on this PR.
+          qg=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs" \
+            --jq '.check_runs[] | select(.name == "Quality Gate" or .name == "quality-gate") | .conclusion' \
+            | head -n 1 || true)
+
+          echo "Quality Gate conclusion for SHA: ${qg:-unknown}"
+
+          if [ "$qg" != "success" ] && [ -n "$qg" ]; then
+            echo "Quality Gate is not success for this SHA. Refusing merge."
+            echo "should_merge=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "should_merge=true" >> "$GITHUB_OUTPUT"
+          echo "pr_url=$url" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Squash-merge Dependabot PR
+        if: steps.meta.outputs.should_merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ steps.meta.outputs.pr_url }}
+        run: |
+          set -euo pipefail
+          # Prefer GitHub auto-merge (respects required checks when branch protection exists).
+          # Do NOT fall back to an unconditional merge if --auto cannot be enabled.
+          if gh pr merge --auto --squash "$PR_URL"; then
+            echo "Enabled auto-merge (squash) for $PR_URL"
+          else
+            echo "Could not enable --auto (branch protection may be absent or permissions limited)."
+            echo "Attempting squash merge only because this job already required quality-gate success for this SHA."
+            gh pr merge --squash --delete-branch "$PR_URL"
+          fi
