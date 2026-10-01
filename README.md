@@ -21,17 +21,29 @@ The architecture is intentionally being developed in stages. Application-specifi
 
 ## Development Checks
 
-WaxPrep uses Ruff for formatting and linting, and mypy for static type checking.
+The standard local verification command is:
 
-Run the individual checks with:
+```text
+make check
+```
+
+It runs, in order:
+
+1. Ruff formatting verification (check only; does not rewrite files)
+2. Ruff linting
+3. mypy strict type checking
+4. the complete unittest suite
+
+Make stops if an earlier step fails. The GitHub Quality Gate uses the same `make check` for core verification, then runs package import validation and a dependency vulnerability audit.
+
+Individual commands remain available when needed:
 
 ```text
 make format
 make lint
 make typecheck
+make test
 ```
-
-The commands are intentionally kept simple so every later development stage uses the same quality checks.
 
 ## Development Rule
 

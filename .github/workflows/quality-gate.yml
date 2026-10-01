@@ -1,12 +1,12 @@
 # WaxPrep Quality Gate — permanent automatic checks on every push and pull request.
-# Uses established tools only; does not invent application-specific scanners.
+# Core format/lint/type/test verification is make check (single source of truth).
+# Additional CI-only checks: package import validation and dependency audit.
 # This workflow is the judge: it never rewrites code.
 
 name: quality-gate
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -42,19 +42,8 @@ jobs:
           uv python install 3.14
           uv sync --group dev --frozen
 
-      - name: Ruff format check (no modifications)
-        run: uv run ruff format --check .
-
-      - name: Ruff lint
-        run: uv run ruff check .
-
-      - name: mypy strict type check
-        run: uv run mypy
-
-      - name: Unit tests
-        env:
-          PYTHONPATH: src
-        run: uv run python -m unittest discover -s tests -v
+      - name: make check
+        run: make check
 
       - name: Package import validation
         env:
