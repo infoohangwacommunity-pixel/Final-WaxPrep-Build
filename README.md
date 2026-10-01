@@ -19,6 +19,20 @@ The architecture is intentionally being developed in stages. Application-specifi
 - `tests/` — automated tests will live here as testable capabilities are introduced.
 - `docs/` — supporting project documentation will live here when documentation is needed.
 
+## Development Checks
+
+WaxPrep uses Ruff for formatting and linting, and mypy for static type checking.
+
+Run the individual checks with:
+
+```text
+make format
+make lint
+make typecheck
+```
+
+The commands are intentionally kept simple so every later development stage uses the same quality checks.
+
 ## Development Rule
 
 Each project stage should make only the changes required for that stage.

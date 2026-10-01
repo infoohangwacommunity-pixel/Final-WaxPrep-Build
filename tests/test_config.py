@@ -42,9 +42,7 @@ class LoadSettingsTests(unittest.TestCase):
     def test_malformed_environment_fails_without_echoing_value(
         self,
     ) -> None:
-        secret_like_value = (
-            "definitely-not-a-valid-environment-secret-123"
-        )
+        secret_like_value = "definitely-not-a-valid-environment-secret-123"
 
         with self.assertRaises(ConfigurationError) as raised:
             load_settings(

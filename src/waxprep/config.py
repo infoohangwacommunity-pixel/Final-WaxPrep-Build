@@ -7,10 +7,9 @@ capability is built.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-import os
-
 
 ENVIRONMENT_VARIABLE = "WAXPREP_ENV"
 
@@ -58,8 +57,7 @@ def load_settings(
         allowed = ", ".join(sorted(ALLOWED_ENVIRONMENTS))
 
         raise ConfigurationError(
-            f"Configuration '{ENVIRONMENT_VARIABLE}' must be one of: "
-            f"{allowed}."
+            f"Configuration '{ENVIRONMENT_VARIABLE}' must be one of: {allowed}."
         )
 
     return Settings(environment=environment)
