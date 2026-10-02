@@ -1,0 +1,35 @@
+THIRD-PARTY SOURCE CODE RECORD
+
+Project: WaxPrep
+
+Purpose
+-------
+This file records third-party source code that has been directly copied
+into WaxPrep.
+
+Current status
+--------------
+No third-party source code has been copied into WaxPrep as of 2026-10-02.
+
+Recording rule
+--------------
+Every copied third-party source-code snippet must be recorded here.
+
+For every copied snippet, record:
+
+Source repository:
+Exact file:
+Source commit:
+License:
+Original copyright/attribution notice:
+What was copied:
+Where it is used in WaxPrep:
+Additional license requirements:
+Notes:
+
+Do not record code as third-party merely because the project was studied.
+This ledger is specifically for source code that was actually copied or
+adapted from another project.
+
+If the license for a source file is unclear or is not one of the licenses
+permitted by LICENSES.md, the source code must not be copied into WaxPrep.
