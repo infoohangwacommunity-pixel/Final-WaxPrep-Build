@@ -16,7 +16,18 @@ line-length = 88
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM"]
+select = ["E", "F", "I", "B", "UP", "SIM", "TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"time.time".msg = "Use waxprep.clock.Clock instead of direct wall-clock access."
+"time.time_ns".msg = "Use waxprep.clock.Clock instead of direct wall-clock access."
+"time.monotonic".msg = "Use waxprep.clock.Clock instead of direct monotonic time access."
+"time.monotonic_ns".msg = "Use waxprep.clock.Clock instead of direct monotonic time access."
+"time.perf_counter".msg = "Use waxprep.clock.Clock instead of direct elapsed-time access."
+"time.perf_counter_ns".msg = "Use waxprep.clock.Clock instead of direct elapsed-time access."
+
+[tool.ruff.lint.per-file-ignores]
+"src/waxprep/clock.py" = ["TID251"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch
+from datetime import UTC, datetime
 from uuid import RFC_4122, UUID
 
+from waxprep.clock import FakeClock
 from waxprep.identifiers import (
     InvalidWaxId,
     ParsedWaxId,
@@ -46,33 +47,39 @@ class WaxIdGenerationTests(unittest.TestCase):
 
 
 class WaxIdOrderingTests(unittest.TestCase):
-    def test_ids_sort_by_timestamp_when_created_in_different_milliseconds(
-        self,
-    ) -> None:
-        timestamps = iter([1_800_000_000_000, 1_800_000_000_001])
+    def test_ids_sort_by_timestamp_with_fake_clock(self) -> None:
+        clock = FakeClock(datetime(2027, 1, 1, tzinfo=UTC))
 
-        with patch(
-            "waxprep.identifiers._timestamp_milliseconds",
-            side_effect=timestamps,
-        ):
-            first = generate_wax_id(WaxIdKind.EVENT)
-            second = generate_wax_id(WaxIdKind.EVENT)
+        first = generate_wax_id(WaxIdKind.EVENT, clock)
+
+        clock.advance(0.001)
+
+        second = generate_wax_id(WaxIdKind.EVENT, clock)
 
         self.assertLess(first, second)
 
-    def test_timestamp_is_stored_in_the_uuid_prefix(self) -> None:
-        timestamp_ms = 1_800_000_000_123
+    def test_timestamp_is_taken_from_injected_clock(self) -> None:
+        timestamp = datetime(
+            2027,
+            1,
+            1,
+            0,
+            0,
+            0,
+            123_000,
+            tzinfo=UTC,
+        )
+        clock = FakeClock(timestamp)
 
-        with patch(
-            "waxprep.identifiers._timestamp_milliseconds",
-            return_value=timestamp_ms,
-        ):
-            identifier = generate_wax_id(WaxIdKind.EVENT)
+        identifier = generate_wax_id(WaxIdKind.EVENT, clock)
 
         uuid_value = parse_wax_id(identifier).uuid.int
         stored_timestamp = uuid_value >> 80
 
-        self.assertEqual(stored_timestamp, timestamp_ms)
+        self.assertEqual(
+            stored_timestamp,
+            int(timestamp.timestamp() * 1_000),
+        )
 
 
 class WaxIdValidationTests(unittest.TestCase):
@@ -120,7 +127,3 @@ class WaxIdValidationTests(unittest.TestCase):
     def test_unknown_generation_kind_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             generate_wax_id("student")
-
-
-if __name__ == "__main__":
-    unittest.main()

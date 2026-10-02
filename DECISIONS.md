@@ -417,3 +417,37 @@ Prompt 17 and must not be introduced as part of this identifier implementation.
 The identifier scheme is general infrastructure only. It does not contain
 tutoring logic, application-specific workflows, intent routing, or agent
 decision-making.
+
+---
+
+## 26. Clock Abstraction
+
+**Decision:** All WaxPrep time access must go through one injectable Clock
+abstraction.
+
+The Clock provides two readings:
+
+- `now()` for current wall-clock time;
+- `monotonic()` for measuring elapsed time.
+
+WaxPrep provides two implementations:
+
+- `RealClock` for actual runtime operation;
+- `FakeClock` for deterministic testing.
+
+The FakeClock can be advanced without waiting for real time to pass.
+
+**Reason:** Time-dependent behavior must be deterministic and testable. Tests
+must be able to move time forward without waiting for the real world clock.
+
+Direct use of system time APIs outside the Clock implementation is forbidden.
+Ruff enforces this rule for common wall-clock and elapsed-time APIs.
+
+The identifier generator now receives a Clock and therefore no longer reads
+system time directly.
+
+The Clock abstraction is general infrastructure. It does not implement
+application-specific scheduling, reminders, tutoring behavior, messaging
+behavior, or agent decisions.
+
+Prompt 17 does not implement the Event Envelope from Prompt 18.

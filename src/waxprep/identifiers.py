@@ -21,10 +21,11 @@ from __future__ import annotations
 
 import re
 import secrets
-import time
 from dataclasses import dataclass
 from enum import StrEnum
 from uuid import RFC_4122, UUID
+
+from waxprep.clock import Clock, RealClock
 
 
 class WaxIdKind(StrEnum):
@@ -56,15 +57,10 @@ _ID_PATTERN = re.compile(
 )
 
 
-def _timestamp_milliseconds() -> int:
-    """Return the current Unix timestamp in milliseconds.
+def _timestamp_milliseconds(clock: Clock) -> int:
+    """Return the clock's current Unix timestamp in milliseconds."""
 
-    Prompt 16 deliberately uses the standard-library clock directly. A
-    replaceable Clock abstraction belongs to Prompt 17 and is not introduced
-    here.
-    """
-
-    return time.time_ns() // 1_000_000
+    return int(clock.now().timestamp() * 1_000)
 
 
 def _uuid7_from_timestamp(timestamp_ms: int) -> UUID:
@@ -87,25 +83,20 @@ def _uuid7_from_timestamp(timestamp_ms: int) -> UUID:
     return UUID(int=value)
 
 
-def generate_wax_id(kind: WaxIdKind | str) -> str:
-    """Generate a new stable, time-sortable WaxPrep ID.
-
-    ``kind`` must be one of the generic WaxPrep identifier kinds. Unknown or
-    malformed kinds are rejected instead of silently producing an ID that the
-    parser cannot understand.
-    """
+def generate_wax_id(
+    kind: WaxIdKind | str,
+    clock: Clock | None = None,
+) -> str:
+    """Generate a new stable, time-sortable WaxPrep ID."""
 
     normalized_kind = _normalize_kind(kind)
-    identifier = _uuid7_from_timestamp(_timestamp_milliseconds())
+    active_clock = clock if clock is not None else RealClock()
+    identifier = _uuid7_from_timestamp(_timestamp_milliseconds(active_clock))
     return f"wax_{normalized_kind.value}_{identifier}"
 
 
 def parse_wax_id(value: str) -> ParsedWaxId:
-    """Parse and validate a WaxPrep ID.
-
-    Invalid input raises :class:`InvalidWaxId`. It is never silently accepted
-    as an unvalidated identifier.
-    """
+    """Parse and validate a WaxPrep ID."""
 
     if not isinstance(value, str):
         raise InvalidWaxId("Wax ID must be a string.")
