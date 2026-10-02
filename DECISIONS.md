@@ -451,3 +451,43 @@ application-specific scheduling, reminders, tutoring behavior, messaging
 behavior, or agent decisions.
 
 Prompt 17 does not implement the Event Envelope from Prompt 18.
+
+---
+
+## 27. Event Envelope
+
+**Decision:** WaxPrep records events using one immutable Event Envelope with
+the following common fields:
+
+- `id`
+- `session_id`
+- `sequence`
+- `timestamp`
+- `kind`
+- `schema_version`
+- `payload`
+- optional `parent_id`
+- optional `cause_id`
+
+The event ID must be a valid `wax_event_<uuidv7>` WAX ID, and the session ID
+must be a valid `wax_session_<uuidv7>` WAX ID.
+
+Parent and cause references, when present, must reference valid event IDs.
+
+The envelope is immutable after creation, including its nested JSON payload.
+
+Events can be serialized to strict JSON and reconstructed from JSON only after
+strict validation.
+
+At this stage the only permitted event kind is the minimal `placeholder`
+kind. Event taxonomy is intentionally deferred to Prompt 19.
+
+**Reason:** Every durable event needs one consistent structure so future event
+records can be validated, serialized, related, and reconstructed without
+inventing different formats for different event types.
+
+The envelope is general infrastructure. It does not define application-specific
+events, tutoring behavior, agent-loop behavior, runtime behavior, event
+storage, or an event bus.
+
+Prompt 18 does not implement the Event Taxonomy from Prompt 19.
