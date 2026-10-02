@@ -491,3 +491,51 @@ events, tutoring behavior, agent-loop behavior, runtime behavior, event
 storage, or an event bus.
 
 Prompt 18 does not implement the Event Taxonomy from Prompt 19.
+
+---
+
+## 28. Event Taxonomy
+
+**Decision:** WaxPrep recognizes the following general-purpose event kinds:
+
+- `user_message`
+- `model_message`
+- `model_tool_request`
+- `action_result`
+- `error`
+- `state_change`
+- `system_notice`
+- `permission_decision`
+
+Each event kind has a typed payload contract and runtime validation.
+
+**Reason:** The Event Envelope from Prompt 18 provides the common structure for
+recording events, but the system also needs to distinguish what kind of thing
+each event represents.
+
+The taxonomy preserves the architectural distinction between:
+
+- what the model requests;
+- what the runtime actually reports;
+- errors;
+- state transitions;
+- system-level notices; and
+- permission decisions.
+
+`model_tool_request` represents an intention/request and must not be treated as
+proof of execution.
+
+`action_result` represents the observation returned by the runtime and is the
+source of truth about the result of an attempted action.
+
+All event kinds remain domain-neutral. They must not encode tutoring,
+education, examination, website-specific, reminder-specific, or other
+application-specific workflows.
+
+The permission decision event is only a placeholder at this stage. Prompt 19
+does not implement a permission engine.
+
+The event taxonomy does not implement an event bus, event store, agent loop,
+runtime, application logic, or other later-stage infrastructure.
+
+Prompt 19 defines the event kinds and their payload contracts only.

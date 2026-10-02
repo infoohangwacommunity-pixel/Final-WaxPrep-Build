@@ -7,7 +7,8 @@ import unittest
 from datetime import UTC, datetime
 
 from waxprep.clock import FakeClock
-from waxprep.event import EventEnvelope, EventKind, InvalidEventEnvelope
+from waxprep.event import EventEnvelope, InvalidEventEnvelope
+from waxprep.event_types import EventKind
 from waxprep.identifiers import WaxIdKind, generate_wax_id
 
 
@@ -31,9 +32,9 @@ class EventEnvelopeTests(unittest.TestCase):
                 30,
                 tzinfo=UTC,
             ),
-            "kind": EventKind.PLACEHOLDER,
+            "kind": EventKind.USER_MESSAGE,
             "schema_version": 1,
-            "payload": {"answer": [1, True, None]},
+            "payload": {"text": "hello"},
             "parent_id": None,
             "cause_id": None,
         }
@@ -80,7 +81,7 @@ class EventEnvelopeTests(unittest.TestCase):
             event.payload["new"] = "value"  # type: ignore[index]
 
         with self.assertRaises(TypeError):
-            event.payload["answer"][0] = 2  # type: ignore[index]
+            event.payload["text"] = "changed"  # type: ignore[index]
 
     def test_invalid_ids_are_rejected(self) -> None:
         with self.assertRaisesRegex(
@@ -117,12 +118,60 @@ class EventEnvelopeTests(unittest.TestCase):
                 timestamp=datetime(2026, 10, 2, 2, 30),
             )
 
-    def test_only_placeholder_kind_is_allowed_at_this_stage(self) -> None:
+    def test_all_taxonomy_kinds_are_allowed(self) -> None:
+        payloads = {
+            EventKind.USER_MESSAGE: {"text": "Hello"},
+            EventKind.MODEL_MESSAGE: {"text": "Hello from the model"},
+            EventKind.MODEL_TOOL_REQUEST: {
+                "tool_name": "read_file",
+                "arguments": {"path": "example.txt"},
+            },
+            EventKind.ACTION_RESULT: {
+                "status": "success",
+                "result": "example result",
+            },
+            EventKind.ERROR: {
+                "error_type": "ExampleError",
+                "message": "Something went wrong.",
+            },
+            EventKind.STATE_CHANGE: {
+                "state": "session",
+                "previous_value": "active",
+                "new_value": "completed",
+            },
+            EventKind.SYSTEM_NOTICE: {
+                "message": "The system is shutting down.",
+            },
+            EventKind.PERMISSION_DECISION: {
+                "decision": "pending",
+            },
+        }
+
+        for kind, payload in payloads.items():
+            with self.subTest(kind=kind):
+                event = self.make_event(
+                    kind=kind,
+                    payload=payload,
+                )
+
+                self.assertEqual(event.kind, kind)
+                self.assertEqual(event.to_dict()["kind"], kind.value)
+
+    def test_taxonomy_payload_remains_immutable(self) -> None:
+        event = self.make_event(
+            kind=EventKind.USER_MESSAGE,
+            payload={"text": "Hello"},
+        )
+
+        with self.assertRaises(TypeError):
+            event.payload["text"] = "Changed"  # type: ignore[index]
+
+    def test_unsupported_kind_is_rejected(self) -> None:
         with self.assertRaisesRegex(
             InvalidEventEnvelope,
-            "current placeholder kind",
+            "unsupported event kind",
         ):
-            self.make_event(kind="session.started")
+            self.make_event(kind="session.started", payload={"text": "x"})
 
     def test_invalid_schema_version_is_rejected(self) -> None:
         with self.assertRaisesRegex(
@@ -147,15 +196,30 @@ class EventEnvelopeTests(unittest.TestCase):
     def test_invalid_payload_is_rejected(self) -> None:
         with self.assertRaisesRegex(
             InvalidEventEnvelope,
-            "unsupported value type",
+            "must be a string",
         ):
-            self.make_event(payload={"value": object()})
+            self.make_event(
+                kind=EventKind.USER_MESSAGE,
+                payload={"text": object()},
+            )
+
+        with self.assertRaisesRegex(
+            InvalidEventEnvelope,
+            "fields do not exactly match",
+        ):
+            self.make_event(
+                kind=EventKind.USER_MESSAGE,
+                payload={"text": "ok", "extra": True},
+            )
 
         with self.assertRaisesRegex(
             InvalidEventEnvelope,
             "non-finite number",
         ):
-            self.make_event(payload={"value": float("nan")})
+            self.make_event(
+                kind=EventKind.ACTION_RESULT,
+                payload={"status": "ok", "result": float("nan")},
+            )
 
     def test_json_with_missing_or_extra_fields_is_rejected(self) -> None:
         data = json.loads(self.make_event().to_json())

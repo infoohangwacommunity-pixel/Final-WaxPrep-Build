@@ -6,10 +6,10 @@ import json
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, NoReturn
 
+from waxprep.event_types import EventKind, InvalidEventEnvelope, validate_event_payload
 from waxprep.identifiers import InvalidWaxId, WaxIdKind, parse_wax_id
 
 _EVENT_FIELDS = frozenset(
@@ -25,16 +25,6 @@ _EVENT_FIELDS = frozenset(
         "cause_id",
     }
 )
-
-
-class InvalidEventEnvelope(ValueError):
-    """Raised when event-envelope data fails validation."""
-
-
-class EventKind(StrEnum):
-    """Event kinds defined at the envelope stage."""
-
-    PLACEHOLDER = "placeholder"
 
 
 def _freeze_payload(value: Any) -> Any:
@@ -151,7 +141,7 @@ class EventEnvelope:
     session_id: str
     sequence: int
     timestamp: datetime
-    kind: str
+    kind: EventKind | str
     schema_version: int
     payload: Any
     parent_id: str | None = None
@@ -179,10 +169,14 @@ class EventEnvelope:
 
         object.__setattr__(self, "timestamp", _validate_timestamp(self.timestamp))
 
-        if self.kind != EventKind.PLACEHOLDER:
+        try:
+            event_kind = EventKind(self.kind)
+        except ValueError as exc:
             raise InvalidEventEnvelope(
-                "kind must be the current placeholder kind: placeholder."
-            )
+                f"unsupported event kind: {self.kind!r}."
+            ) from exc
+
+        object.__setattr__(self, "kind", event_kind)
 
         if (
             isinstance(self.schema_version, bool)
@@ -191,6 +185,7 @@ class EventEnvelope:
         ):
             raise InvalidEventEnvelope("schema_version must be a positive integer.")
 
+        validate_event_payload(event_kind, self.payload)
         object.__setattr__(self, "payload", _freeze_payload(self.payload))
 
         if self.parent_id is not None:
@@ -210,12 +205,14 @@ class EventEnvelope:
     def to_dict(self) -> dict[str, Any]:
         """Return the envelope as JSON-compatible Python values."""
 
+        kind_value = self.kind.value if isinstance(self.kind, EventKind) else self.kind
+
         return {
             "id": self.id,
             "session_id": self.session_id,
             "sequence": self.sequence,
             "timestamp": self.timestamp.isoformat().replace("+00:00", "Z"),
-            "kind": self.kind,
+            "kind": kind_value,
             "schema_version": self.schema_version,
             "payload": _thaw_payload(self.payload),
             "parent_id": self.parent_id,
@@ -270,3 +267,11 @@ class EventEnvelope:
             parent_id=data["parent_id"],
             cause_id=data["cause_id"],
         )
+
+
+# Re-export for existing imports
+__all__ = [
+    "EventEnvelope",
+    "EventKind",
+    "InvalidEventEnvelope",
+]
