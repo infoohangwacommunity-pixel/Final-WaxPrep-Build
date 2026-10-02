@@ -367,3 +367,53 @@ logic, or other later-stage capability belongs in this review.
 
 The repository should proceed to the next prompt only after the Phase 0 checks pass
 and the resulting repository state is tagged or otherwise recorded.
+
+---
+
+## 25. WAX ID Identifier Scheme
+
+**Decision:** WaxPrep uses stable identifiers with the following general form:
+
+    wax_<kind>_<uuidv7>
+
+Examples include:
+
+    wax_session_<uuidv7>
+    wax_conversation_<uuidv7>
+    wax_turn_<uuidv7>
+    wax_event_<uuidv7>
+    wax_action_<uuidv7>
+    wax_observation_<uuidv7>
+
+The UUID portion uses the UUIDv7 layout.
+
+**Reason:** WaxPrep needs a stable identity for sessions, conversations, turns,
+events, actions, and observations so records can be connected without relying
+on human-readable names or database-generated incidental identifiers.
+
+The identifier provides three useful properties:
+
+- the `wax_` prefix identifies the WaxPrep namespace
+- the kind prefix makes the object type immediately understandable
+- UUIDv7 provides timestamp-based ordering together with a large random
+  component for collision resistance
+
+Wax IDs are therefore sortable by creation time across different milliseconds
+while remaining suitable for distributed generation.
+
+The identifier layer provides:
+
+- generation
+- parsing
+- validation
+- explicit rejection of malformed or unknown IDs
+
+Invalid IDs must not silently pass as valid identifiers.
+
+Prompt 16 intentionally uses the standard-library system time directly for
+UUIDv7 timestamp generation. A replaceable Clock abstraction is deferred to
+Prompt 17 and must not be introduced as part of this identifier implementation.
+
+The identifier scheme is general infrastructure only. It does not contain
+tutoring logic, application-specific workflows, intent routing, or agent
+decision-making.
