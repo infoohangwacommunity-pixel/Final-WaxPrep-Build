@@ -11,6 +11,11 @@ from typing import Any, NoReturn
 
 from waxprep.event_types import EventKind, InvalidEventEnvelope, validate_event_payload
 from waxprep.identifiers import InvalidWaxId, WaxIdKind, parse_wax_id
+from waxprep.migrations import (
+    CURRENT_EVENT_SCHEMA_VERSION,
+    EventMigrationError,
+    migrate_event_data,
+)
 
 _EVENT_FIELDS = frozenset(
     {
@@ -142,8 +147,8 @@ class EventEnvelope:
     sequence: int
     timestamp: datetime
     kind: EventKind | str
-    schema_version: int
-    payload: Any
+    schema_version: int = CURRENT_EVENT_SCHEMA_VERSION
+    payload: Any = None
     parent_id: str | None = None
     cause_id: str | None = None
 
@@ -181,9 +186,11 @@ class EventEnvelope:
         if (
             isinstance(self.schema_version, bool)
             or not isinstance(self.schema_version, int)
-            or self.schema_version < 1
+            or self.schema_version != CURRENT_EVENT_SCHEMA_VERSION
         ):
-            raise InvalidEventEnvelope("schema_version must be a positive integer.")
+            raise InvalidEventEnvelope(
+                "schema_version must match the current event schema version."
+            )
 
         validate_event_payload(event_kind, self.payload)
         object.__setattr__(self, "payload", _freeze_payload(self.payload))
@@ -232,7 +239,7 @@ class EventEnvelope:
 
     @classmethod
     def from_json(cls, json_text: str) -> EventEnvelope:
-        """Deserialize and strictly validate an event envelope from JSON."""
+        """Deserialize, migrate, and strictly validate an event envelope."""
 
         if not isinstance(json_text, str):
             raise InvalidEventEnvelope("JSON input must be a string.")
@@ -250,6 +257,11 @@ class EventEnvelope:
 
         if not isinstance(data, dict):
             raise InvalidEventEnvelope("event envelope JSON must be an object.")
+
+        try:
+            data = migrate_event_data(data)
+        except EventMigrationError as exc:
+            raise InvalidEventEnvelope(str(exc)) from exc
 
         if set(data) != _EVENT_FIELDS:
             raise InvalidEventEnvelope(
@@ -269,7 +281,6 @@ class EventEnvelope:
         )
 
 
-# Re-export for existing imports
 __all__ = [
     "EventEnvelope",
     "EventKind",

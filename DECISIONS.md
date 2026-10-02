@@ -539,3 +539,51 @@ The event taxonomy does not implement an event bus, event store, agent loop,
 runtime, application logic, or other later-stage infrastructure.
 
 Prompt 19 defines the event kinds and their payload contracts only.
+
+
+---
+
+## 29. Event Schema Versioning and Immutable Migrations
+
+**Decision:** WaxPrep event envelopes use an explicit current schema version,
+and older event data is upgraded through a version-keyed migration chain before
+current-schema validation.
+
+The current event schema version introduced by Prompt 20 is:
+
+    2
+
+Migrations are keyed by their source version:
+
+    v1 → v2
+    v2 → v3
+    v3 → v4
+
+Each migration must advance the event to the next supported schema version.
+
+**Reason:** Durable event records must remain readable as the event contract
+evolves.
+
+Prompt 18 created schema version 1 with a temporary `placeholder` event kind.
+Prompt 19 replaced that placeholder with the domain-neutral event taxonomy.
+Prompt 20 therefore provides the compatibility migration from the historical
+version 1 placeholder event into the current version 2 taxonomy.
+
+The version 1 placeholder payload is preserved as deterministic JSON inside a
+current `system_notice` payload rather than restoring the deprecated
+placeholder event kind to the current taxonomy.
+
+Old migrations are immutable compatibility history.
+
+Once released, an existing migration must never be edited. Future schema
+changes must add a new migration step instead.
+
+Events with a schema version newer than the supported current version are
+rejected rather than silently downgraded.
+
+Migration occurs in memory during event deserialization. Storage concerns
+remain outside this prompt and belong to the later storage abstraction stage.
+
+This decision remains domain-neutral and does not introduce tutoring,
+application workflows, an event bus, persistence infrastructure, or agent-loop
+behavior.

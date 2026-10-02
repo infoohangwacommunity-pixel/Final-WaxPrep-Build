@@ -10,6 +10,7 @@ from waxprep.clock import FakeClock
 from waxprep.event import EventEnvelope, InvalidEventEnvelope
 from waxprep.event_types import EventKind
 from waxprep.identifiers import WaxIdKind, generate_wax_id
+from waxprep.migrations import CURRENT_EVENT_SCHEMA_VERSION
 
 
 class EventEnvelopeTests(unittest.TestCase):
@@ -33,7 +34,7 @@ class EventEnvelopeTests(unittest.TestCase):
                 tzinfo=UTC,
             ),
             "kind": EventKind.USER_MESSAGE,
-            "schema_version": 1,
+            "schema_version": CURRENT_EVENT_SCHEMA_VERSION,
             "payload": {"text": "hello"},
             "parent_id": None,
             "cause_id": None,
@@ -69,6 +70,14 @@ class EventEnvelopeTests(unittest.TestCase):
                 "parent_id",
                 "cause_id",
             },
+        )
+
+    def test_json_uses_current_schema_version(self) -> None:
+        data = json.loads(self.make_event().to_json())
+
+        self.assertEqual(
+            data["schema_version"],
+            CURRENT_EVENT_SCHEMA_VERSION,
         )
 
     def test_envelope_is_immutable(self) -> None:
@@ -173,10 +182,17 @@ class EventEnvelopeTests(unittest.TestCase):
         ):
             self.make_event(kind="session.started", payload={"text": "x"})
 
+    def test_non_current_schema_version_is_rejected(self) -> None:
+        with self.assertRaisesRegex(
+            InvalidEventEnvelope,
+            "schema_version must match the current event schema version",
+        ):
+            self.make_event(schema_version=1)
+
     def test_invalid_schema_version_is_rejected(self) -> None:
         with self.assertRaisesRegex(
             InvalidEventEnvelope,
-            "schema_version must be a positive integer",
+            "schema_version must match the current event schema version",
         ):
             self.make_event(schema_version=0)
 
