@@ -639,3 +639,28 @@ implementation can be checked against the same observable behavior.
 This decision remains domain-neutral and does not introduce an event bus,
 agent loop, runtime behavior, database technology, or tutoring/application
 logic.
+
+
+---
+
+## 31. In-Memory Storage Backend
+
+**Decision:** WaxPrep's first concrete storage implementation is an in-memory
+`EventStore` and `SessionStore`.
+
+**Reason:** A process-local backend provides a fast implementation for tests
+and experiments while allowing the storage contracts to be exercised before
+durable persistence is introduced.
+
+The `InMemoryEventStore` maintains independent, append-only event histories
+per session. Event sequences begin at `1` and must advance by exactly one.
+Invalid, duplicate, or gapped sequences are rejected atomically.
+
+The `InMemorySessionStore` maintains immutable session identities and replaces
+metadata as complete snapshots.
+
+The backend is process-local and intentionally non-durable. Data disappears
+when the process exits.
+
+Prompt 22 does not introduce file persistence, databases, an event bus,
+agent-loop behavior, model integration, or application-specific logic.
