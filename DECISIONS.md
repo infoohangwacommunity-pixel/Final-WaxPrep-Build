@@ -587,3 +587,55 @@ remain outside this prompt and belong to the later storage abstraction stage.
 This decision remains domain-neutral and does not introduce tutoring,
 application workflows, an event bus, persistence infrastructure, or agent-loop
 behavior.
+
+
+---
+
+## 30. Storage Abstraction and Persistence Contracts
+
+**Decision:** WaxPrep separates storage interfaces from storage implementations.
+
+The foundation defines two domain-neutral protocols:
+
+- `EventStore`
+- `SessionStore`
+
+`EventStore` provides:
+
+- append
+- read range
+- read from sequence
+- count
+
+`SessionStore` provides:
+
+- create
+- get
+- list
+- update metadata
+
+**Reason:** Agent/session code must not become coupled to a particular
+persistence technology.
+
+Event storage is append-only and immutable. Events within a session use a
+strict, gap-free sequence beginning at `1`, and reads return events in
+ascending sequence order.
+
+A single event append is atomic: it either becomes visible completely or
+leaves the event history unchanged.
+
+Session creation is also atomic. Metadata updates replace the complete
+metadata snapshot.
+
+The interface does not prescribe the implementation mechanism. Locks,
+transactions, optimistic concurrency, files, databases, or memory are
+implementation concerns.
+
+Prompt 21 intentionally provides no storage backend.
+
+Reusable storage contract tests are defined separately so every future
+implementation can be checked against the same observable behavior.
+
+This decision remains domain-neutral and does not introduce an event bus,
+agent loop, runtime behavior, database technology, or tutoring/application
+logic.
