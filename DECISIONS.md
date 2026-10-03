@@ -934,3 +934,35 @@ It adds no production dependency and does not modify earlier contracts.
 Prompt 31 does not define the tool schema, execute tools, implement the agent
 loop, contact model providers, add retries, or introduce application-specific
 behavior.
+
+---
+
+## 42. Tool Definition Schema and Argument Validation (Prompt 32)
+
+**Decision:** WaxPrep reuses its existing ToolDefinition contract and
+validates tool input schemas using JSON Schema Draft 2020-12.
+
+Each tool input schema must describe a top-level JSON object. Schemas are
+validated when tool definitions are constructed. Schema data is copied
+and recursively frozen so later mutation of the caller's original data
+cannot silently change the declared contract.
+
+A reusable argument-validation function checks proposed tool arguments
+against the corresponding definition. Invalid schemas raise
+ModelContractError at definition time. Invalid argument values raise
+ToolArgumentsError during argument validation.
+
+**Reason:** Tool definitions need a consistent, standards-based input
+contract. Reimplementing a partial JSON Schema validator would create
+inconsistent behavior and require WaxPrep to maintain its own schema rules.
+
+**Compatibility:** The implementation reuses the existing vendor-neutral
+ToolDefinition and ToolRequest contracts. JSON Schema validation does
+not execute tools, grant permissions, or establish that an action succeeded.
+
+The JSON Schema library is an explicit runtime dependency and is managed
+through the project manifest and lockfile.
+
+Prompt 32 does not implement provider-specific schema conversion, real
+provider adapters, tool registration or dispatch, tool execution, the agent
+loop, a permission engine, or application-specific behavior.

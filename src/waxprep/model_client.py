@@ -7,6 +7,8 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Protocol
 
+from waxprep.tool_schema import ToolSchemaError, validate_json_schema
+
 
 class ModelContractError(ValueError):
     """Raised when normalized model contract data is invalid."""
@@ -54,6 +56,25 @@ def _freeze_mapping(value: object, field_name: str) -> Mapping[str, object]:
     return MappingProxyType(copied)
 
 
+def _freeze_schema_value(value: object) -> object:
+    """Recursively copy and freeze a tool schema's JSON-like values."""
+
+    if isinstance(value, Mapping):
+        copied: dict[str, object] = {}
+
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ModelContractError("Tool input schema keys must be strings.")
+            copied[key] = _freeze_schema_value(item)
+
+        return MappingProxyType(copied)
+
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_schema_value(item) for item in value)
+
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class TextContentBlock:
     """A vendor-neutral text content block."""
@@ -96,11 +117,21 @@ class ToolDefinition:
         if not isinstance(self.description, str):
             raise ModelContractError("Tool description must be a string.")
 
-        object.__setattr__(
-            self,
-            "input_schema",
-            _freeze_mapping(self.input_schema, "Tool input schema"),
+        schema = _freeze_mapping(
+            self.input_schema,
+            "Tool input schema",
         )
+        frozen_schema = _freeze_schema_value(schema)
+
+        if not isinstance(frozen_schema, Mapping):
+            raise ModelContractError("Tool input schema must be a mapping.")
+
+        object.__setattr__(self, "input_schema", frozen_schema)
+
+        try:
+            validate_json_schema(frozen_schema)
+        except ToolSchemaError as exc:
+            raise ModelContractError(str(exc)) from exc
 
 
 @dataclass(frozen=True, slots=True)
