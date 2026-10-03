@@ -859,3 +859,21 @@ only as secondary checks.
 
 Prompt 28 does not implement model providers, the agent loop, tutoring, or new
 storage backends.
+
+---
+
+## 39. Vendor-Neutral Model Client Contract (Prompt 29)
+
+**Decision:** WaxPrep defines normalized model request and response value types and an asynchronous `ModelClient` structural protocol.
+
+The request contains normalized messages, optional tool definitions, and common model settings. The response contains normalized content blocks, optional tool requests, a stop reason, and usage information that may be unavailable.
+
+The contract is independent of any concrete model vendor. Its initial content-block types represent text and image references.
+
+**Reason:** The rest of WaxPrep should communicate through a stable model contract rather than depend directly on any provider's SDK or API schema.
+
+The implementation follows the project's existing use of standard-library `Protocol` interfaces and typed, immutable value objects. It introduces no runtime dependency.
+
+The contract does not implement provider adapters, message or content normalization, network requests, tool execution, the agent loop, or application-specific behavior.
+
+Prompt 29 establishes the interface only. Provider implementations and normalization logic remain deferred to their own prompts.

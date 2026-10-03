@@ -259,6 +259,23 @@ The model is allowed to decide whether an action is necessary.
 
 The infrastructure must not manufacture application actions because it recognizes a keyword.
 
+
+#### Current normalized model-client interface
+
+The initial model-client contract is defined in `src/waxprep/model_client.py`.
+
+`ModelClient` is an asynchronous structural protocol. Its `complete` method accepts a `ModelRequest` and returns a `ModelResponse`.
+
+The request and response use vendor-neutral message roles, content blocks, tool definitions, tool requests, settings, stop reasons, and optional token-usage information.
+
+The contract uses standard-library types and does not require a concrete provider implementation. Future provider adapters must translate between this normalized contract and their provider-specific request and response formats.
+
+The current content-block variants are text and image references. This is a type-level contract only; content normalization and provider-specific conversion are deferred to later prompts.
+
+Tool requests describe what the model is asking the caller to consider doing. They do not execute tools and do not prove that an action occurred.
+
+The interface does not implement the agent loop, network access, streaming, retries, provider selection, or application-specific behavior.
+
 ### 3.2 Agent-loop contract
 
 The loop must:
