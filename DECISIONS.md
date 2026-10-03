@@ -838,3 +838,24 @@ and does not claim distributed or network-filesystem locking.
 
 Prompt 27 does not introduce the agent loop, model providers, concurrency
 frameworks beyond session write coordination, databases, or application logic.
+
+---
+
+## 38. Persistence Recovery Integration Test (Prompt 28)
+
+**Decision:** WaxPrep verifies durable session and event recovery with an
+integration test that writes history in one process and recovers it in another
+after the writer exits.
+
+**Reason:** Creating a second store object in the same process does not prove
+that persisted data survives process termination. A subprocess writer that exits
+cleanly, followed by recovery from disk-only state, exercises the real file
+backend, locking path, event serialization, and session metadata reload.
+
+The test establishes expected results from the writer's inputs before exit, then
+compares recovered session status, event sequences, kinds, and payloads in the
+parent process. Replay and timeline helpers are exercised on recovered history
+only as secondary checks.
+
+Prompt 28 does not implement model providers, the agent loop, tutoring, or new
+storage backends.

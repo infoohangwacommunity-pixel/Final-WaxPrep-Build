@@ -1183,6 +1183,50 @@ The essential relationship is:
                    └──────────────► decide again
 ```
 
+
+
+## Persistence and recovery (implemented foundation)
+
+WaxPrep already persists sessions and events on the local filesystem when using
+the file-backed stores.
+
+### What is persisted
+
+- Each session has a directory under an absolute caller-supplied `data_dir`.
+- Session metadata is stored in `metadata.json`.
+- Event history is stored as append-only `events.jsonl` (one `EventEnvelope` per
+  line).
+- Per-session operating-system write locks coordinate concurrent writers for the
+  same session.
+
+### How history is read
+
+- `EventStore.read_from_sequence` and `read_range` return immutable
+  `EventEnvelope` values in ascending sequence order.
+- `event_history.query_events` / `paginate_events` filter that history without
+  modifying storage.
+- `replay_events` walks recorded events in order; it does not re-execute tools
+  or contact a model.
+
+### What Prompt 28 proves
+
+An integration test starts a **separate Python process** that:
+
+1. creates a session,
+2. transitions lifecycle status,
+3. appends varied event kinds,
+4. writes an independent expected snapshot to disk,
+5. exits.
+
+A fresh process (the test runner) then reopens the same `data_dir` with new
+`FileSessionStore` / `FileEventStore` instances, loads the session, reads the
+event log, replays it, and asserts equality with the expected snapshot.
+
+This demonstrates recovery of durable session metadata and ordered event history
+after a genuine process restart. It does **not** claim distributed durability,
+crash-atomic cross-store transactions, or model/agent-loop behavior.
+
+
 The architecture therefore does not ask infrastructure to understand everything.
 
 It asks infrastructure to provide a reliable world.
