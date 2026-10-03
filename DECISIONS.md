@@ -754,3 +754,28 @@ schema migration is justified by multi-conversation needs.
 
 Prompt 25 does not implement context assembly, memory retrieval, the agent
 loop, model providers, tools, or application-specific behavior.
+
+---
+
+## 35. Conversation Identity Boundary (Prompt 25 clarification)
+
+**Decision:** For the current conversation model, the **session** is the durable
+grouping for user and model messages. The **conversation ID** identifies the
+conversation view/object and is supplied by the caller when reconstructing a
+conversation; it is not stored on message event payloads.
+
+**Reason:** Message events still use payload `{"text": ...}` so historical
+events remain valid without a schema migration. The event log can recover which
+messages belong to a session and in what order. It cannot independently recover
+a conversation ID that was never recorded on those events.
+
+**Consequence:**
+
+- One conversation view per session is the supported contract.
+- Multiple independently recoverable conversations per session are not supported
+  yet.
+- Future multi-conversation support requires a dedicated prompt and a durable
+  association design that preserves compatibility with existing message events.
+
+This clarification does not change event payloads, migrations, storage
+backends, or agent-loop behavior.
