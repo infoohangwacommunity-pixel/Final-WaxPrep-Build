@@ -907,6 +907,3 @@ schema migration or provider dependency is introduced.
 
 Prompt 30 does not implement a mock model, a provider adapter, tool
 execution, the agent loop, or application-specific behavior.
-
-
-============================================================
