@@ -730,3 +730,27 @@ stores; that limitation is accepted and documented rather than papered over.
 
 Prompt 24 does not implement conversations, turns, the agent loop, model
 providers, tools, workspace management, or application-specific logic.
+
+
+---
+
+## 34. Conversation Model
+
+**Decision:** WaxPrep represents a conversation as an immutable ordered view of
+`user_message` and `model_message` events belonging to a session.
+
+Conversation identity uses the existing WAX conversation identifier kind.
+Reconstruction filters the durable event log by session and message kinds and
+orders messages by event sequence.
+
+**Reason:** The event log is the source of truth for what was said. A
+conversation view must be rebuildable from stored events without introducing a
+second intelligence layer or changing historical message payloads.
+
+Message payloads remain `{"text": ...}` for compatibility with already stored
+events. Conversation association is via session identity on the conversation
+object. Embedding conversation IDs into message payloads is deferred until a
+schema migration is justified by multi-conversation needs.
+
+Prompt 25 does not implement context assembly, memory retrieval, the agent
+loop, model providers, tools, or application-specific behavior.
