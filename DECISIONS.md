@@ -703,3 +703,30 @@ Corruption in a non-final event-log record is treated as unrecoverable
 Prompt 23 does not introduce the session lifecycle, agent loop, runtime,
 database technology, event bus, tutoring logic, or application-specific
 behavior.
+
+
+---
+
+## 33. Session Model and Lifecycle
+
+**Decision:** WaxPrep defines a domain-neutral session model with six statuses
+(`created`, `running`, `waiting`, `finished`, `failed`, `cancelled`) and an
+explicit transition table.
+
+Successful transitions append a durable `state_change` event and then update
+session metadata. Session creation establishes the initial `created` state
+without emitting a synthetic state-change event.
+
+**Reason:** Higher-level agent behavior needs a durable work container with
+clear lifecycle rules and an audit trail of status changes.
+
+The session reuses existing WAX IDs, Clock, EventEnvelope, SessionStore, and
+EventStore contracts rather than introducing parallel systems.
+
+Write ordering prefers recording the transition event before advancing
+metadata so a failed metadata update does not claim success without evidence.
+The current storage abstractions do not provide a transaction spanning both
+stores; that limitation is accepted and documented rather than papered over.
+
+Prompt 24 does not implement conversations, turns, the agent loop, model
+providers, tools, workspace management, or application-specific logic.
