@@ -877,3 +877,36 @@ The implementation follows the project's existing use of standard-library `Proto
 The contract does not implement provider adapters, message or content normalization, network requests, tool execution, the agent loop, or application-specific behavior.
 
 Prompt 29 establishes the interface only. Provider implementations and normalization logic remain deferred to their own prompts.
+
+---
+
+## 40. Event-to-Model-Message Normalization (Prompt 30)
+
+**Decision:** WaxPrep converts existing durable conversation events into
+the vendor-neutral `ModelMessage` types established in Prompt 29.
+
+User events become user messages, model text events become assistant
+messages, model tool requests become assistant messages containing
+`ToolRequest` values, and action results become tool-result messages.
+
+The originating tool-request event ID becomes the normalized tool request
+ID. An action result must reference exactly one preceding, unresolved
+tool request through the existing `parent_id` or `cause_id` event-envelope
+fields.
+
+Ambiguous, orphaned, out-of-order, and duplicate results are rejected
+instead of being paired by proximity or by choosing the latest request.
+
+**Reason:** Model messages must accurately represent recorded history.
+A real action result must be associated with the request that caused it,
+without inventing relationships or changing historical payload formats.
+
+**Compatibility:** The implementation reuses the existing event envelope,
+event payloads, storage contracts, and Prompt 29 model types. No event
+schema migration or provider dependency is introduced.
+
+Prompt 30 does not implement a mock model, a provider adapter, tool
+execution, the agent loop, or application-specific behavior.
+
+
+============================================================
