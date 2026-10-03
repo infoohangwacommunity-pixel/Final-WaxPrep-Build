@@ -664,3 +664,42 @@ when the process exits.
 
 Prompt 22 does not introduce file persistence, databases, an event bus,
 agent-loop behavior, model integration, or application-specific logic.
+
+---
+
+## 32. Durable File-Based Storage Backend
+
+**Decision:** WaxPrep's first durable storage implementation uses an external,
+configurable filesystem data directory.
+
+Each session has:
+
+- an append-only `events.jsonl` event log;
+- a separate `metadata.json` session metadata file.
+
+**Reason:** The storage contracts from Prompt 21 need a durable implementation
+before higher-level session behavior is introduced.
+
+JSON Lines preserves the append-only event-history model while keeping each
+event independently serialized using the existing `EventEnvelope` schema and
+migration system.
+
+The data directory is supplied explicitly as an absolute path so durable
+runtime data is not implicitly mixed into the source workspace.
+
+Event appends remain gap-free and atomic at the storage contract level.
+Successful event records are flushed to durable storage.
+
+Session metadata is replaced using an atomic temporary-file write followed by
+replacement of the existing metadata file.
+
+A partially written final JSONL record is treated as recoverable corruption.
+The backend reports it through `StorageCorruptionWarning` and preserves all
+earlier valid events instead of allowing a raw JSON decoding failure to escape.
+
+Corruption in a non-final event-log record is treated as unrecoverable
+`StorageCorruptionError` because the ordered history can no longer be trusted.
+
+Prompt 23 does not introduce the session lifecycle, agent loop, runtime,
+database technology, event bus, tutoring logic, or application-specific
+behavior.
