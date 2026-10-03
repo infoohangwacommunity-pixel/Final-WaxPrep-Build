@@ -127,6 +127,31 @@ class SessionModelTests(unittest.TestCase):
         restored = Session.from_metadata(session.to_metadata())
         self.assertEqual(restored, session)
 
+    def test_rejects_infinite_config_values(self) -> None:
+        with self.assertRaises(InvalidSession):
+            Session(
+                id=self.session_id,
+                created=self.clock.now(),
+                status=SessionStatus.CREATED,
+                config_snapshot={"x": float("inf")},
+            )
+
+        with self.assertRaises(InvalidSession):
+            Session(
+                id=self.session_id,
+                created=self.clock.now(),
+                status=SessionStatus.CREATED,
+                config_snapshot={"x": float("-inf")},
+            )
+
+        with self.assertRaises(InvalidSession):
+            Session(
+                id=self.session_id,
+                created=self.clock.now(),
+                status=SessionStatus.CREATED,
+                config_snapshot={"x": float("nan")},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

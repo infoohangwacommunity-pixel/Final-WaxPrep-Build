@@ -149,15 +149,27 @@ class SessionLifecycleService:
         still show the previous status. Callers must treat that as a
         recoverable inconsistency; the service does not report success when
         the metadata write fails.
+
+        Recovery from an event/metadata mismatch is an operational
+        concern outside this service: inspect the latest state_change
+        event for the session and re-apply the metadata update, or
+        surface the inconsistency to an operator. This service does
+        not invent a second journal or cross-store transaction.
         """
 
-        if isinstance(new_status, str):
+        if isinstance(new_status, SessionStatus):
+            pass
+        elif isinstance(new_status, str):
             try:
                 new_status = SessionStatus(new_status)
             except ValueError as exc:
                 raise InvalidSessionTransition(
                     f"unknown session status: {new_status!r}."
                 ) from exc
+        else:
+            raise InvalidSessionTransition(
+                "new_status must be a SessionStatus or status string."
+            )
 
         with self._lock:
             record = self._sessions.get(session_id)

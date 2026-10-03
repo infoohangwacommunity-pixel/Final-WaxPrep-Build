@@ -14,6 +14,7 @@ from waxprep.session_lifecycle import (
     InvalidSessionTransition,
     SessionLifecycleService,
 )
+from waxprep.storage import StorageError
 
 
 class SessionLifecycleTests(unittest.TestCase):
@@ -162,6 +163,123 @@ class SessionLifecycleTests(unittest.TestCase):
 
         events = self.events.read_from_sequence(session.id, 1)
         self.assertEqual(tuple(e.sequence for e in events), (1, 2, 3, 4))
+
+    def test_invalid_transition_input_type_is_rejected(self) -> None:
+        session = self.service.create(config_snapshot={})
+        before = self.events.count(session.id)
+
+        with self.assertRaises(InvalidSessionTransition):
+            self.service.transition(session.id, 123)  # type: ignore[arg-type]
+
+        with self.assertRaises(InvalidSessionTransition):
+            self.service.transition(session.id, None)  # type: ignore[arg-type]
+
+        loaded = self.service.get(session.id)
+        assert loaded is not None
+        self.assertEqual(loaded.status, SessionStatus.CREATED)
+        self.assertEqual(self.events.count(session.id), before)
+
+    def test_event_append_failure_leaves_session_unchanged(self) -> None:
+        class FailingEventStore(InMemoryEventStore):
+            def append(self, event):  # type: ignore[no-untyped-def]
+                raise StorageError("simulated append failure")
+
+
+        sessions = InMemorySessionStore()
+        events = FailingEventStore()
+        service = SessionLifecycleService(
+            sessions, events, FakeClock(datetime(2026, 10, 3, tzinfo=UTC))
+        )
+        session = service.create(config_snapshot={})
+
+        from waxprep.session_lifecycle import SessionLifecycleError
+
+        with self.assertRaises(SessionLifecycleError):
+            service.transition(session.id, SessionStatus.RUNNING)
+
+        loaded = service.get(session.id)
+        assert loaded is not None
+        self.assertEqual(loaded.status, SessionStatus.CREATED)
+        self.assertEqual(events.count(session.id), 0)
+
+    def test_metadata_update_failure_after_event_append(self) -> None:
+        from waxprep.session_lifecycle import SessionLifecycleError
+
+        class FailingSessionStore(InMemorySessionStore):
+            def __init__(self) -> None:
+                super().__init__()
+                self.fail_next_update = False
+
+            def update_metadata(self, session_id, metadata):  # type: ignore[no-untyped-def]
+                if self.fail_next_update:
+                    raise StorageError("simulated metadata failure")
+                return super().update_metadata(session_id, metadata)
+
+        sessions = FailingSessionStore()
+        events = InMemoryEventStore()
+        service = SessionLifecycleService(
+            sessions, events, FakeClock(datetime(2026, 10, 3, tzinfo=UTC))
+        )
+        session = service.create(config_snapshot={})
+        sessions.fail_next_update = True
+
+        with self.assertRaises(SessionLifecycleError):
+            service.transition(session.id, SessionStatus.RUNNING)
+
+        # Event was written; metadata still shows created
+        self.assertEqual(events.count(session.id), 1)
+        loaded = service.get(session.id)
+        assert loaded is not None
+        self.assertEqual(loaded.status, SessionStatus.CREATED)
+
+
+class FileSessionLifecycleTests(unittest.TestCase):
+    """Durable file-storage proof for session lifecycle."""
+
+    def setUp(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from waxprep.file_storage import FileEventStore, FileSessionStore
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.data_dir = Path(self._tmp.name).resolve()
+        self.clock = FakeClock(datetime(2026, 10, 3, tzinfo=UTC))
+        self.sessions = FileSessionStore(self.data_dir)
+        self.events = FileEventStore(self.data_dir)
+        self.service = SessionLifecycleService(self.sessions, self.events, self.clock)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_session_and_events_survive_file_store_recreation(self) -> None:
+
+        from waxprep.file_storage import FileEventStore, FileSessionStore
+
+        session = self.service.create(
+            config_snapshot={"mode": "durable"},
+            workspace_ref="/tmp/ws",
+        )
+        self.service.transition(session.id, SessionStatus.RUNNING)
+        self.service.transition(session.id, SessionStatus.WAITING)
+
+        # Recreate stores and service from the same directory
+        sessions2 = FileSessionStore(self.data_dir)
+        events2 = FileEventStore(self.data_dir)
+        service2 = SessionLifecycleService(sessions2, events2, self.clock)
+
+        loaded = service2.get(session.id)
+        assert loaded is not None
+        self.assertEqual(loaded.status, SessionStatus.WAITING)
+        self.assertEqual(dict(loaded.config_snapshot), {"mode": "durable"})
+        self.assertEqual(loaded.workspace_ref, "/tmp/ws")
+
+        history = events2.read_from_sequence(session.id, 1)
+        self.assertEqual(len(history), 2)
+        self.assertEqual(
+            tuple(e.payload["new_value"] for e in history),
+            ("running", "waiting"),
+        )
 
 
 if __name__ == "__main__":

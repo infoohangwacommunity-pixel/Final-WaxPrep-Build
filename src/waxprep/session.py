@@ -7,6 +7,7 @@ transitions live in ``session_lifecycle``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -83,7 +84,7 @@ def _freeze_value(value: object) -> Any:
         return value
 
     if isinstance(value, float):
-        if value != value:  # NaN
+        if not math.isfinite(value):
             raise InvalidSession("config_snapshot cannot contain non-finite numbers.")
         return value
 

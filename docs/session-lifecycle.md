@@ -72,6 +72,18 @@ interfaces do not provide a cross-store transaction.
 In-process locking serializes transitions within one service instance. This does
 not claim cross-process safety.
 
+## Event/metadata mismatch recovery
+
+If an event append succeeds and the following metadata update fails, the event
+history is ahead of the session metadata. Operators can:
+
+1. Read the latest `state_change` event for the session.
+2. Re-apply the metadata update to match `new_value`.
+3. Or surface the inconsistency for manual repair.
+
+The lifecycle service does not hide the failure and does not claim a cross-store
+transaction.
+
 ## Deferred
 
 - Conversations and turns (Prompt 25+)
