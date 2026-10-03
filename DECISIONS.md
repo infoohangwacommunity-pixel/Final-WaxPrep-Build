@@ -779,3 +779,41 @@ a conversation ID that was never recorded on those events.
 
 This clarification does not change event payloads, migrations, storage
 backends, or agent-loop behavior.
+
+
+---
+
+## 36. Event Reading, Replay and Queries
+
+**Decision:** WaxPrep provides a domain-neutral event-history query layer over the
+existing `EventStore`.
+
+The query layer supports filtering by:
+
+- event kind
+- timestamp range
+- sequence range
+
+Time and sequence ranges use inclusive starts and exclusive ends.
+
+Pagination uses event sequence as the continuation cursor rather than introducing
+a separate storage-specific paging model.
+
+WaxPrep also provides a simple visitor-based replay operation that walks already
+recorded events in ascending sequence order without executing actions or contacting
+the runtime or model.
+
+A human-readable timeline formatter is provided for debugging and inspection.
+
+**Reason:** Durable event history is useful only if humans and future recovery
+logic can efficiently read and interpret what actually happened.
+
+This keeps reading and inspection separate from storage implementation while
+preserving the existing EventStore and EventEnvelope contracts.
+
+The replay mechanism is intentionally an ordered event walk. It is not a full
+workflow-reconstruction engine such as deterministic workflow replay.
+
+Prompt 26 does not introduce the agent loop, model providers, runtime execution,
+context assembly, memory retrieval, databases, concurrency infrastructure,
+hosting-specific code, or application-specific tutoring behavior.
