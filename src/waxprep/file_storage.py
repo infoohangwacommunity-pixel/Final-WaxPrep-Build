@@ -24,6 +24,7 @@ from threading import RLock
 from typing import Any
 
 from waxprep.event import EventEnvelope, InvalidEventEnvelope
+from waxprep.session_lock import session_write_lock
 from waxprep.storage import (
     EventStore,
     SessionRecord,
@@ -354,7 +355,7 @@ class FileEventStore(EventStore):
 
         session_id = _validate_session_id(event.session_id)
 
-        with self._lock:
+        with self._lock, session_write_lock(self._data_dir, session_id):
             path = _events_path(self._data_dir, session_id)
             events, valid_end = _read_event_lines(path)
             expected_sequence = len(events) + 1
@@ -470,7 +471,7 @@ class FileSessionStore(SessionStore):
         if not isinstance(session, SessionRecord):
             raise TypeError("session must be a SessionRecord.")
 
-        with self._lock:
+        with self._lock, session_write_lock(self._data_dir, session.id):
             session_directory = _session_directory(
                 self._data_dir,
                 session.id,
@@ -545,7 +546,7 @@ class FileSessionStore(SessionStore):
 
         session_id = _validate_session_id(session_id)
 
-        with self._lock:
+        with self._lock, session_write_lock(self._data_dir, session_id):
             path = _metadata_path(self._data_dir, session_id)
 
             if not path.exists():

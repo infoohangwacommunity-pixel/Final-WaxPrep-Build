@@ -63,6 +63,32 @@ A new event must use exactly the next sequence number.
 
 Gaps, duplicates, and out-of-order appends are rejected.
 
+
+## Concurrent writers and session locks
+
+File-backed writes use a per-session operating-system file lock.
+
+Before appending an event or changing session metadata, a writer must acquire
+the lock associated with that session. The event sequence is checked while the
+lock is held, so independent store instances cannot both approve the same next
+sequence number.
+
+The lock is non-blocking. If another writer holds the same session lock, the
+attempt raises `StorageConflictError` with a message explaining that the session
+is currently locked. The caller can retry the operation later.
+
+Different sessions have separate locks and do not block one another.
+
+The operating system releases a process-owned lock when its owning process exits.
+Lock files are retained rather than deleted after each operation, because deleting
+a lock file while another process is waiting or holding it can undermine
+coordination.
+
+This mechanism is intended for supported local filesystems. It does not claim to
+provide distributed locking or guarantees for every network filesystem. Only one
+writer should modify a given session at a time; competing writers must handle
+`StorageConflictError` rather than assume their writes succeeded.
+
 ## Partial final-line recovery
 
 A process can theoretically be interrupted while writing the final JSONL

@@ -21,7 +21,8 @@ from waxprep.file_storage import (
     StorageCorruptionWarning,
 )
 from waxprep.identifiers import WaxIdKind, generate_wax_id
-from waxprep.storage import SessionRecord
+from waxprep.session_lock import session_write_lock
+from waxprep.storage import SessionRecord, StorageConflictError
 
 
 class FileEventStoreContractTests(
@@ -272,6 +273,33 @@ class FileStorageDurabilityTests(unittest.TestCase):
             store.read_from_sequence(session.id, 1),
             (first, second, third),
         )
+
+    def test_session_write_lock_rejects_competing_writers(self) -> None:
+        session = self._make_session()
+        other_session = self._make_session()
+
+        store = FileEventStore(self._data_dir)
+        competing_store = FileEventStore(self._data_dir)
+
+        for sequence in range(1, 11):
+            event = self._make_event(session.id, sequence)
+
+            with session_write_lock(self._data_dir, session.id):
+                with self.assertRaisesRegex(
+                    StorageConflictError,
+                    "another writer currently holds the lock",
+                ):
+                    competing_store.append(event)
+
+                # A different session has a different lock and can proceed.
+                other_event = self._make_event(other_session.id, sequence)
+                competing_store.append(other_event)
+
+            # After the lock is released, the original session can be written.
+            store.append(event)
+
+        self.assertEqual(store.count(session.id), 10)
+        self.assertEqual(store.count(other_session.id), 10)
 
     def test_data_directory_must_be_absolute(self) -> None:
         with self.assertRaises(ValueError):

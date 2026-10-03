@@ -817,3 +817,24 @@ workflow-reconstruction engine such as deterministic workflow replay.
 Prompt 26 does not introduce the agent loop, model providers, runtime execution,
 context assembly, memory retrieval, databases, concurrency infrastructure,
 hosting-specific code, or application-specific tutoring behavior.
+
+---
+
+## 37. Cross-Process Session Write Locks
+
+**Decision:** File-backed session writes use a per-session operating-system file
+lock in addition to the existing in-process `RLock`.
+
+The lock is non-blocking. Competing writers for the same session receive
+`StorageConflictError` and must retry. Sequence validation for event appends
+occurs while the cross-process lock is held.
+
+**Reason:** In-process locks do not coordinate independent Python processes that
+share the same durable data directory. Without a cross-process lock, two store
+instances could both approve the same next event sequence.
+
+Different sessions remain independent. The mechanism targets local filesystems
+and does not claim distributed or network-filesystem locking.
+
+Prompt 27 does not introduce the agent loop, model providers, concurrency
+frameworks beyond session write coordination, databases, or application logic.
