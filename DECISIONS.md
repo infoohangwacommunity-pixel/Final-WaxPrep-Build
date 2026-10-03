@@ -907,3 +907,30 @@ schema migration or provider dependency is introduced.
 
 Prompt 30 does not implement a mock model, a provider adapter, tool
 execution, the agent loop, or application-specific behavior.
+
+---
+
+## 41. Deterministic Scripted Model Client (Prompt 31)
+
+**Decision:** WaxPrep provides a scripted mock implementation of the existing
+asynchronous `ModelClient` protocol for deterministic tests.
+
+The mock consumes `ModelResponse` values and exceptions in explicit sequence.
+It records received requests, returns scripted responses, raises scripted
+exceptions, and raises a clear error if the script is exhausted.
+
+Small helpers create text responses, tool-request responses, and validated
+scripts from the existing vendor-neutral model types.
+
+**Reason:** Tests must be able to exercise model-facing code without provider
+credentials, network access, usage costs, or nondeterministic model output.
+Unexpected additional model calls must fail visibly rather than repeat an
+arbitrary response.
+
+**Compatibility:** The implementation reuses `ModelClient`, `ModelRequest`,
+`ModelResponse`, `ToolRequest`, `StopReason`, and existing content types.
+It adds no production dependency and does not modify earlier contracts.
+
+Prompt 31 does not define the tool schema, execute tools, implement the agent
+loop, contact model providers, add retries, or introduce application-specific
+behavior.
