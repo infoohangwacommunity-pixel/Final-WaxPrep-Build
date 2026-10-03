@@ -184,7 +184,6 @@ class SessionLifecycleTests(unittest.TestCase):
             def append(self, event):  # type: ignore[no-untyped-def]
                 raise StorageError("simulated append failure")
 
-
         sessions = InMemorySessionStore()
         events = FailingEventStore()
         service = SessionLifecycleService(
